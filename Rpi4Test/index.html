@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>HackRF One</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--fg:#d4d4d4;--dim:#444;--line:#1a1a1a;
+  --g:#4ade80;--r:#f87171;--y:#fbbf24;--b:#60a5fa;--o:#fb923c;
+  --font:'IBM Plex Mono',monospace;
+}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;min-height:100vh}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--fg);cursor:pointer;transition:transform .1s}
+input[type=range]::-webkit-slider-thumb:active{transform:scale(1.3)}
+input[type=number]{background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--fg);font-family:var(--font);outline:none;-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button{display:none}
+button{font-family:var(--font);cursor:pointer;border:none;background:none;color:var(--fg)}
+button:disabled{cursor:not-allowed;opacity:.22}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#2a2a2a}
+.divider{height:1px;background:var(--line);margin:22px 0}
+.lbl{color:var(--dim);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;display:block}
+
+/* Overlay */
+.overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.93);
+  backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{max-width:390px;width:100%;animation:fadeIn .18s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.15}}
+
+.btn-row{display:flex;gap:10px;margin-top:22px}
+.btn{padding:12px 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;width:100%;transition:opacity .15s;font-family:var(--font);cursor:pointer}
+.btn-solid{background:var(--fg);color:#000;font-weight:700;border:none}
+.btn-ghost{background:transparent;border:1px solid #252525;color:var(--dim)}
+.btn-warn{background:var(--o);color:#000;font-weight:700;border:none}
+.btn-tx{background:var(--r);color:#000;font-weight:700;border:none}
+
+/* Chip / mod tlačidlá */
+.chip{padding:5px 11px;font-size:11px;letter-spacing:.5px;border:1px solid #1e1e1e;
+  background:transparent;color:var(--dim);transition:all .15s;cursor:pointer;font-family:var(--font)}
+.chip.active,.chip:hover{border-color:#333;color:var(--fg)}
+.chip.active{background:#111;color:var(--fg)}
+.mod-btn{padding:8px 14px;font-size:12px;border:1px solid #1e1e1e;
+  background:transparent;color:var(--dim);cursor:pointer;font-family:var(--font);transition:all .15s}
+.mod-btn.active{background:var(--fg);color:#000;font-weight:700;border-color:var(--fg)}
+.rate-btn{flex:1;padding:7px 0;font-size:10px;letter-spacing:.5px;border:1px solid #1e1e1e;
+  background:transparent;color:var(--dim);cursor:pointer;font-family:var(--font);transition:all .15s}
+.rate-btn.active{background:var(--b);color:#000;border-color:var(--b);font-weight:700}
+
+/* Amplitude toggle */
+.amp-toggle{display:flex;gap:0}
+.amp-btn{flex:1;padding:10px 0;font-size:13px;font-weight:700;border:1px solid #1e1e1e;
+  background:transparent;color:var(--dim);cursor:pointer;font-family:var(--font);transition:all .15s;letter-spacing:1px}
+.amp-btn:first-child{border-right:none}
+.amp-btn.active{background:var(--fg);color:#000;border-color:var(--fg)}
+
+/* Knižnica */
+.lib-item{display:flex;align-items:center;gap:0;margin-bottom:1px;cursor:pointer;
+  border:1px solid transparent;transition:all .15s}
+.lib-item:hover{border-color:#1e1e1e}
+.lib-item.selected{border-color:#333;background:#0d0d0d}
+.lib-play{flex:1;padding:10px 12px;text-align:left;background:transparent;cursor:pointer;font-family:var(--font)}
+.lib-del{padding:10px 12px;color:#2a2a2a;font-size:15px;cursor:pointer;background:transparent;
+  border:none;transition:color .15s;font-family:var(--font);flex-shrink:0}
+.lib-del:hover{color:var(--r)}
+.lib-empty{color:var(--dim);font-size:12px;padding:16px 0;text-align:center}
+
+/* Anténa kalkulátor */
+.ant-box{background:#080808;border:1px solid #141414;padding:14px 16px;margin-top:14px}
+.ant-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.ant-row:last-child{margin-bottom:0}
+.ant-key{color:var(--dim);font-size:11px}
+.ant-val{font-size:13px;font-weight:500}
+.ant-rec{color:var(--g);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:10px;
+  padding-top:10px;border-top:1px solid #141414}
+
+/* Hlavné 3 tlačidlá */
+.ctrl{padding:13px 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;
+  flex:1;transition:all .2s;font-family:var(--font);border:1px solid #1e1e1e;background:transparent}
+
+/* Log */
+#log{height:130px;overflow-y:auto}
+.log-line{display:flex;gap:10px;margin-bottom:2px;font-size:11px;line-height:1.4}
+.log-ts{color:#2a2a2a;flex-shrink:0}
+
+/* Sekcia upload */
+.up-btn{width:100%;padding:15px 0;font-size:12px;border:1px dashed #222;
+  color:var(--fg);background:transparent;cursor:pointer;transition:all .2s;font-family:var(--font);letter-spacing:.5px}
+.up-btn:hover{border-color:#333}
+</style>
+</head>
+<body>
+
+<!-- ── Disclaimer ─────────────────────────────────────────────────────────── -->
+<div class="overlay" id="disc-overlay">
+  <div class="modal">
+    <span class="lbl">Právne upozornenie</span>
+    <p style="color:var(--fg);font-size:13px;line-height:1.75;margin-bottom:14px">
+      Vysielanie na väčšine frekvencií vyžaduje povolenie <strong>TÚSR</strong>.
+      Neoprávnené vysielanie je trestné podľa zákona č.&nbsp;351/2011&nbsp;Z.z.
+    </p>
+    <p style="color:var(--dim);font-size:12px;line-height:1.7">
+      Použi výhradne frekvencie pre ISM pásmo alebo amatérske rádio s platnou licenciou.
+      Nerušaj leteckú, záchranársku ani inú kritickú komunikáciu.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="window.location='about:blank'">Zamietnuť</button>
+      <button class="btn btn-solid" onclick="acceptDisc()">Rozumiem</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TX Confirm ─────────────────────────────────────────────────────────── -->
+<div class="overlay" id="tx-overlay" style="display:none">
+  <div class="modal">
+    <span class="lbl">Potvrdiť vysielanie</span>
+    <p style="font-size:28px;font-weight:700;margin-bottom:6px">
+      <span id="cf-freq"></span><span style="color:var(--dim);font-size:15px"> MHz</span>
+      <span id="cf-mod" style="color:var(--dim);font-size:16px;margin-left:14px"></span>
+    </p>
+    <p style="color:var(--dim);font-size:12px;margin-bottom:4px">Gain: <span id="cf-gain" style="color:var(--fg)"></span> dB</p>
+    <p style="color:var(--y);font-size:12px;line-height:1.7;margin-top:12px">
+      Potvrd, že máš platné povolenie TÚSR pre túto frekvenciu.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('tx-overlay')">Zrušiť</button>
+      <button class="btn btn-tx" onclick="doStartTx()">Spustiť TX</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Gain Warning ───────────────────────────────────────────────────────── -->
+<div class="overlay" id="gain-overlay" style="display:none">
+  <div class="modal">
+    <span class="lbl" style="color:var(--o)">⚠ Vysoký výkon</span>
+    <p style="color:var(--fg);font-size:13px;line-height:1.75;margin-bottom:14px">
+      Gain nad <strong>45 dB</strong> môže spôsobiť nadmerné elektromagnetické rušenie
+      a poškodenie okolitých zariadení alebo antény.
+    </p>
+    <p style="color:var(--dim);font-size:12px;line-height:1.7">
+      Používaj vyšší výkon len v izolovanom prostredí s atenuátorom alebo dummy load.
+      Zodpovednosť nesieš ty.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="rejectHighGain()">Späť na 45 dB</button>
+      <button class="btn btn-warn" onclick="acceptHighGain()">Rozumiem, pokračovať</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Hlavné UI ─────────────────────────────────────────────────────────── -->
+<div style="max-width:440px;margin:0 auto;padding:0 20px 52px">
+
+  <!-- Header / stav -->
+  <div style="padding:28px 0 22px">
+    <span class="lbl" style="margin-bottom:10px">HackRF One · 8080</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="s-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--y);flex-shrink:0"></span>
+      <span id="s-text" style="font-size:14px;color:var(--y)">Inicializácia...</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Frekvencia ─────────────────────────────────────────────────────── -->
+  <span class="lbl">Frekvencia</span>
+  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+    <input type="number" id="freq" value="433.92" step="0.001" min="1" max="6000"
+      style="font-size:34px;font-weight:700;width:100%;padding-bottom:4px" oninput="onFreqChange()">
+    <span style="color:var(--dim);font-size:15px">MHz</span>
+  </div>
+  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:0" id="presets"></div>
+
+  <!-- Anténa kalkulátor -->
+  <div class="ant-box" id="ant-box"></div>
+
+  <div class="divider"></div>
+
+  <!-- ── Modulácia ──────────────────────────────────────────────────────── -->
+  <span class="lbl">Modulácia</span>
+  <div style="display:flex;gap:7px;flex-wrap:wrap" id="mods"></div>
+
+  <div class="divider"></div>
+
+  <!-- ── RF Parametre ───────────────────────────────────────────────────── -->
+  <span class="lbl">RF Parametre</span>
+
+  <!-- Gain -->
+  <div style="margin-bottom:22px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+      <span style="color:var(--dim);font-size:11px;letter-spacing:1px;text-transform:uppercase">Gain</span>
+      <span id="gain-val" style="color:var(--y);font-size:13px;font-weight:500">10 dB</span>
+    </div>
+    <input type="range" id="gain-slider" min="1" max="47" value="10"
+      style="accent-color:var(--y)" oninput="onGainInput(this.value)">
+    <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#2a2a2a">
+      <span>1</span><span style="color:#333">45</span><span>47</span>
+    </div>
+  </div>
+
+  <!-- Amplitúda toggle -->
+  <div style="margin-bottom:4px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+      <span style="color:var(--dim);font-size:11px;letter-spacing:1px;text-transform:uppercase">Amplitúda</span>
+      <span id="amp-label" style="font-size:13px;font-weight:500">0</span>
+    </div>
+    <div class="amp-toggle">
+      <button class="amp-btn active" id="amp0" onclick="setAmp(0)">0</button>
+      <button class="amp-btn" id="amp1" onclick="setAmp(1)">1</button>
+    </div>
+  </div>
+
+  <div style="margin-top:22px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+      <span style="color:var(--dim);font-size:11px;letter-spacing:1px;text-transform:uppercase">Sample rate</span>
+      <span id="rate-lbl" style="color:var(--b);font-size:12px">8 Msps</span>
+    </div>
+    <div style="display:flex;gap:7px" id="rates"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Knižnica ───────────────────────────────────────────────────────── -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <span class="lbl" style="margin-bottom:0">Knižnica</span>
+    <button onclick="loadLibrary()" style="color:var(--dim);font-size:11px;letter-spacing:1px;padding:0">↻ obnoviť</button>
+  </div>
+  <div id="lib-list"></div>
+
+  <!-- Upload -->
+  <div style="margin-top:12px">
+    <input type="file" id="file-input" accept=".wav,.mp3" style="display:none" onchange="handleUpload(event)">
+    <button class="up-btn" id="up-btn" onclick="document.getElementById('file-input').click()">
+      + Nahrať .wav / .mp3 do knižnice
+    </button>
+    <p id="up-err" style="color:var(--r);font-size:11px;margin-top:8px;display:none"></p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── TX ovládanie ───────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+    <button class="ctrl" onclick="document.getElementById('file-input').click()" style="color:var(--dim)">Upload</button>
+    <button class="ctrl" id="tx-btn" disabled onclick="showTxConfirm()"
+      style="color:var(--dim)">TX</button>
+    <button class="ctrl" id="stop-btn" disabled onclick="doStop()"
+      style="color:var(--dim)">Stop</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Log ───────────────────────────────────────────────────────────── -->
+  <div id="log"></div>
+
+</div>
+
+<script>
+// ── Stav ─────────────────────────────────────────────────────────────────────
+let accepted   = false;
+let hackrfOk   = false;
+let txActive   = false;
+let amplitude  = 0;
+let gain       = 10;
+let gainHighOk = false;
+let pendingGain = 10;
+let currentMod = "FM";
+let currentRate = 8_000_000;
+let selectedFile = null;       // {name, path, duration_s, ...}
+
+const MODS    = ["FM","WFM","AM","USB","LSB","DSB"];
+const PRESETS = [{l:"ISM 433",f:433.92},{l:"ISM 868",f:868.0},{l:"FM Radio",f:98.0},{l:"2.4 GHz",f:2441.0}];
+const RATES   = [2_000_000,4_000_000,8_000_000,10_000_000];
+const fmtRate = r => r>=1e6?`${r/1e6} Msps`:`${r/1e3} ksps`;
+const C = 299_792_458;
+
+const STATE = {
+  booting:     {t:"Inicializácia...",   c:"var(--y)"},
+  ap_ready:    {t:"Čakám na HackRF...", c:"var(--fg)"},
+  hackrf_ready:{t:"HackRF pripojený",   c:"var(--g)"},
+  transmitting:{t:"",                   c:"var(--r)"},
+  error:       {t:"Chyba systému",      c:"var(--r)"},
+};
+const LC = {ok:"#4ade80",error:"#f87171",warn:"#fbbf24",tx:"#f87171",info:"#555",dim:"#2a2a2a"};
+
+// ── Anténa kalkulátor ─────────────────────────────────────────────────────────
+function antCalc(freqMHz) {
+  const f = freqMHz * 1e6;
+  const lam = C / f;              // lambda v metroch
+  const cm = v => (v * 100).toFixed(1) + " cm";
+  const mm = v => (v * 1000).toFixed(1) + " mm";
+  const fmt = v => v*100 >= 1 ? cm(v) : mm(v);
+
+  const q4  = lam / 4;           // λ/4 quarter wave
+  const q2  = lam / 2;           // λ/2 half wave
+  const q58 = lam * 5/8;         // 5/8λ (optimum gain vertical)
+  const gamma = q4 * 0.95;       // Gamma match skrátenie ~5%
+
+  // Odporúčaný typ podľa frekvencie
+  let rec, recNote;
+  if (freqMHz < 30) {
+    rec = "Dipól / dlhá drôtová"; recNote = "HF – horizontálny dipól alebo long wire";
+  } else if (freqMHz < 300) {
+    rec = "λ/4 vertikál alebo dipól"; recNote = "VHF – quarter-wave vertikál so 4 radials";
+  } else if (freqMHz < 1000) {
+    rec = "λ/4 vertikál / Yagi"; recNote = "UHF – quarter-wave alebo 5/8λ vertikál";
+  } else {
+    rec = "Patch / helikálna"; recNote = "SHF – patch anténa alebo helix";
+  }
+
+  return {lam, q4, q2, q58, gamma, rec, recNote, fmt};
+}
+
+function renderAnt() {
+  const freq = parseFloat(document.getElementById("freq").value) || 433.92;
+  const a = antCalc(freq);
+  const box = document.getElementById("ant-box");
+  const lm = v => (v*100).toFixed(2);
+  box.innerHTML = `
+    <div class="ant-row"><span class="ant-key">λ (vlnová dĺžka)</span><span class="ant-val">${a.fmt(a.lam)}</span></div>
+    <div class="ant-row"><span class="ant-key">λ/4 quarter-wave</span><span class="ant-val" style="color:var(--g)">${a.fmt(a.q4)}</span></div>
+    <div class="ant-row"><span class="ant-key">λ/2 half-wave dipól</span><span class="ant-val">${a.fmt(a.q2)}</span></div>
+    <div class="ant-row"><span class="ant-key">5/8λ vertikál</span><span class="ant-val">${a.fmt(a.q58)}</span></div>
+    <div class="ant-row"><span class="ant-key">Gamma match (−5%)</span><span class="ant-val" style="color:var(--b)">${a.fmt(a.gamma)}</span></div>
+    <div class="ant-rec">${a.rec}<br><span style="color:var(--dim);font-size:10px">${a.recNote}</span></div>
+  `;
+}
+
+function onFreqChange() { renderAnt(); }
+
+// ── Gain ─────────────────────────────────────────────────────────────────────
+function onGainInput(v) {
+  v = parseInt(v);
+  if (v > 45 && !gainHighOk) {
+    pendingGain = v;
+    openModal("gain-overlay");
+    document.getElementById("gain-slider").value = gain;
+    return;
+  }
+  gain = Math.min(47, v);
+  document.getElementById("gain-val").textContent = gain + " dB";
+  document.getElementById("gain-slider").value = gain;
+}
+
+function rejectHighGain() {
+  gain = 45;
+  document.getElementById("gain-slider").value = 45;
+  document.getElementById("gain-val").textContent = "45 dB";
+  closeModal("gain-overlay");
+}
+
+function acceptHighGain() {
+  gainHighOk = true;
+  gain = pendingGain;
+  document.getElementById("gain-slider").value = gain;
+  document.getElementById("gain-val").textContent = gain + " dB";
+  closeModal("gain-overlay");
+  addLog(`Vysoký gain ${gain} dB potvrdený`, "warn");
+}
+
+// ── Amplitúda ─────────────────────────────────────────────────────────────────
+function setAmp(v) {
+  amplitude = v;
+  document.getElementById("amp-label").textContent = v;
+  document.getElementById("amp0").classList.toggle("active", v===0);
+  document.getElementById("amp1").classList.toggle("active", v===1);
+}
+
+// ── Modals ───────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).style.display = "flex"; }
+function closeModal(id){ document.getElementById(id).style.display = "none"; }
+function acceptDisc()  {
+  accepted = true;
+  closeModal("disc-overlay");
+  addLog("Právne upozornenie prijaté", "ok");
+  loadLibrary();
+  updateUI();
+}
+
+// ── Stav UI ───────────────────────────────────────────────────────────────────
+function setStatus(state, extra) {
+  const dot = document.getElementById("s-dot");
+  const txt = document.getElementById("s-text");
+  const s   = STATE[state] || {t:state, c:"var(--dim)"};
+  dot.style.background = s.c;
+  dot.style.animation  = state==="transmitting" ? "pulse .6s infinite" : "none";
+  if (state==="transmitting" && extra) {
+    txt.textContent   = `VYSIELAM  ${extra.freq} MHz  ${extra.mod||currentMod}`;
+    txt.style.color   = "var(--r)";
+    txt.style.fontWeight = "700";
+  } else {
+    txt.textContent   = s.t;
+    txt.style.color   = s.c;
+    txt.style.fontWeight = "400";
+  }
+}
+
+function updateUI() {
+  const canTx = accepted && hackrfOk && selectedFile && !txActive;
+  const txBtn  = document.getElementById("tx-btn");
+  const stBtn  = document.getElementById("stop-btn");
+  txBtn.disabled = !canTx;
+  stBtn.disabled = !txActive;
+  txBtn.style.background   = canTx   ? "var(--r)" : "transparent";
+  txBtn.style.color        = canTx   ? "#000"     : "var(--dim)";
+  txBtn.style.borderColor  = canTx   ? "var(--r)" : "#1e1e1e";
+  txBtn.style.fontWeight   = canTx   ? "700"      : "400";
+  stBtn.style.color        = txActive ? "var(--fg)": "var(--dim)";
+  stBtn.style.borderColor  = txActive ? "#444"    : "#1e1e1e";
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function addLog(msg, level="info") {
+  const el  = document.getElementById("log");
+  const now = new Date().toLocaleTimeString("sk",{hour12:false});
+  const row = document.createElement("div");
+  row.className = "log-line";
+  row.innerHTML = `<span class="log-ts">${now}</span><span style="color:${LC[level]||"#555"}">${msg}</span>`;
+  el.appendChild(row);
+  while(el.children.length > 80) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Knižnica ─────────────────────────────────────────────────────────────────
+async function loadLibrary() {
+  try {
+    const r = await fetch("/api/library");
+    const d = await r.json();
+    renderLibrary(d.files || []);
+  } catch { addLog("Knižnica nedostupná", "warn"); }
+}
+
+function renderLibrary(files) {
+  const el = document.getElementById("lib-list");
+  if (!files.length) {
+    el.innerHTML = '<p class="lib-empty">Knižnica je prázdna — nahraj súbory</p>';
+    return;
+  }
+  el.innerHTML = "";
+  files.forEach(f => {
+    const item = document.createElement("div");
+    item.className = "lib-item" + (selectedFile?.path===f.path?" selected":"");
+    item.dataset.path = f.path;
+
+    const dur = f.duration_s ? `${f.duration_s}s` : "";
+    const sz  = f.size_mb ? `${f.size_mb}MB` : "";
+    const meta = [dur, sz, f.added].filter(Boolean).join(" · ");
+
+    item.innerHTML = `
+      <button class="lib-play" onclick="selectFile(${JSON.stringify(f).replace(/"/g,'&quot;')}, this.closest('.lib-item'))">
+        <div style="font-size:12px;color:var(--fg);margin-bottom:2px">${f.name.replace(/\.wav$/,"")}</div>
+        <div style="font-size:10px;color:var(--dim)">${meta}</div>
+      </button>
+      <button class="lib-del" onclick="deleteFile('${f.name}',this.closest('.lib-item'))" title="Zmazať">×</button>
+    `;
+    el.appendChild(item);
+  });
+}
+
+function selectFile(f, itemEl) {
+  selectedFile = f;
+  document.querySelectorAll(".lib-item").forEach(x => x.classList.remove("selected"));
+  if (itemEl) itemEl.classList.add("selected");
+  addLog(`Vybraný: ${f.name} [${f.duration_s}s]`, "ok");
+  updateUI();
+}
+
+async function deleteFile(name, itemEl) {
+  if (!confirm(`Zmazať ${name}?`)) return;
+  if (selectedFile?.name === name) { selectedFile = null; updateUI(); }
+  const r = await fetch(`/api/library/${encodeURIComponent(name)}`, {method:"DELETE"});
+  const d = await r.json();
+  if (d.ok) { itemEl.remove(); addLog(`Zmazaný: ${name}`, "warn"); }
+  else addLog(`Mazanie zlyhalo: ${d.error}`, "error");
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById("up-err").style.display = "none";
+  const btn = document.getElementById("up-btn");
+  btn.disabled = true; btn.textContent = "Nahrávam...";
+  addLog(`Upload: ${file.name} (${(file.size/1048576).toFixed(1)} MB)`, "info");
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const r = await fetch("/api/upload", {method:"POST", body:fd});
+    const d = await r.json();
+    if (d.ok) {
+      addLog(`Uložené do knižnice: ${d.name} [${d.duration_s}s]`, "ok");
+      await loadLibrary();
+    } else {
+      const er = document.getElementById("up-err");
+      er.textContent = d.error; er.style.display = "block";
+      addLog(`Upload chyba: ${d.error}`, "error");
+    }
+  } catch { addLog("Upload chyba: spojenie", "error"); }
+  finally {
+    btn.disabled = false; btn.textContent = "+ Nahrať .wav / .mp3 do knižnice";
+    e.target.value = "";
+  }
+}
+
+// ── TX ────────────────────────────────────────────────────────────────────────
+function showTxConfirm() {
+  document.getElementById("cf-freq").textContent = document.getElementById("freq").value;
+  document.getElementById("cf-mod").textContent  = currentMod;
+  document.getElementById("cf-gain").textContent = gain;
+  openModal("tx-overlay");
+}
+
+async function doStartTx() {
+  closeModal("tx-overlay");
+  const body = {
+    freq:       parseFloat(document.getElementById("freq").value),
+    mod:        currentMod,
+    gain:       gain,
+    amplitude:  amplitude,
+    sampleRate: currentRate,
+    wavPath:    selectedFile?.path,
+  };
+  try {
+    const r = await fetch("/api/tx/start", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.ok) addLog(`TX chyba: ${d.error}`, "error");
+  } catch { addLog("TX chyba: spojenie", "error"); }
+}
+
+async function doStop() {
+  try { await fetch("/api/tx/stop", {method:"POST"}); }
+  catch { addLog("Stop chyba", "error"); }
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function connectSSE() {
+  const es = new EventSource("/api/events");
+  es.onmessage = ({data}) => {
+    try {
+      const ev = JSON.parse(data);
+      if (ev.type === "state") {
+        hackrfOk = !!ev.hackrf;
+        txActive = ev.state === "transmitting";
+        setStatus(ev.state, ev);
+        updateUI();
+      } else if (ev.type === "hackrf") {
+        hackrfOk = ev.connected;
+        addLog(ev.connected ? "HackRF pripojený" : "HackRF odpojený!", ev.connected?"ok":"warn");
+        updateUI();
+      } else if (ev.type === "tx") {
+        txActive = !!ev.active;
+        if (!ev.active) addLog(`TX stop — ${ev.reason||""}`, "warn");
+        updateUI();
+      } else if (ev.type === "log") {
+        addLog(ev.msg, ev.level||"info");
+      } else if (ev.type === "library_update") {
+        loadLibrary();
+      }
+    } catch(_){}
+  };
+  es.onerror = () => {
+    addLog("Spojenie prerušené — rekonekcia 3s...", "warn");
+    es.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ── Build statický UI ─────────────────────────────────────────────────────────
+function buildPresets() {
+  const el = document.getElementById("presets");
+  PRESETS.forEach(p => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = p.l;
+    b.onclick = () => {
+      document.getElementById("freq").value = p.f;
+      renderAnt();
+    };
+    el.appendChild(b);
+  });
+}
+
+function buildMods() {
+  const el = document.getElementById("mods");
+  MODS.forEach(m => {
+    const b = document.createElement("button");
+    b.className = "mod-btn" + (m==="FM"?" active":"");
+    b.textContent = m;
+    b.onclick = () => {
+      document.querySelectorAll(".mod-btn").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active"); currentMod = m;
+    };
+    el.appendChild(b);
+  });
+}
+
+function buildRates() {
+  const el = document.getElementById("rates");
+  RATES.forEach(r => {
+    const b = document.createElement("button");
+    b.className = "rate-btn" + (r===8_000_000?" active":"");
+    b.textContent = fmtRate(r);
+    b.onclick = () => {
+      document.querySelectorAll(".rate-btn").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active"); currentRate = r;
+      document.getElementById("rate-lbl").textContent = fmtRate(r);
+    };
+    el.appendChild(b);
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildPresets(); buildMods(); buildRates();
+renderAnt();
+connectSSE();
+addLog("Čakám na server...", "dim");
+</script>
+</body>
+</html>
