@@ -1,2 +1,4 @@
 # PiZero2W-HackRF
 Control, upload .wav, .mp3 files and transmit sound
+## FOR EDUCATIONAL PURPOSES ONLY !
+- Iam NOT RESPONSIBLE FOR ANY ILLEGAL ACTIVITIES, DAMAGES, BAD BEHAVIOR !
