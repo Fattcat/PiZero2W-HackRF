@@ -4,16 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>HackRF One</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
+/* ── FONT STACK: Systémové monospace fonty (offline, bez externých zdrojov) ── */
+:root{
+  --font:'Courier New', Consolas, 'Liberation Mono', 'DejaVu Sans Mono', 'Ubuntu Mono', monospace;
+}
+
+/* ── CORE STYLES ────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#000;--fg:#d4d4d4;--dim:#444;--line:#1a1a1a;
   --g:#4ade80;--r:#f87171;--y:#fbbf24;--b:#60a5fa;--o:#fb923c;
-  --font:'IBM Plex Mono',monospace;
 }
-html,body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;min-height:100vh}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;min-height:100vh;line-height:1.4}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);outline:none;cursor:pointer}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--fg);cursor:pointer;transition:transform .1s}
 input[type=range]::-webkit-slider-thumb:active{transform:scale(1.3)}
@@ -269,7 +272,7 @@ let gainHighOk = false;
 let pendingGain = 10;
 let currentMod = "FM";
 let currentRate = 8_000_000;
-let selectedFile = null;       // {name, path, duration_s, ...}
+let selectedFile = null;
 
 const MODS    = ["FM","WFM","AM","USB","LSB","DSB"];
 const PRESETS = [{l:"ISM 433",f:433.92},{l:"ISM 868",f:868.0},{l:"FM Radio",f:98.0},{l:"2.4 GHz",f:2441.0}];
@@ -289,28 +292,19 @@ const LC = {ok:"#4ade80",error:"#f87171",warn:"#fbbf24",tx:"#f87171",info:"#555"
 // ── Anténa kalkulátor ─────────────────────────────────────────────────────────
 function antCalc(freqMHz) {
   const f = freqMHz * 1e6;
-  const lam = C / f;              // lambda v metroch
+  const lam = C / f;
   const cm = v => (v * 100).toFixed(1) + " cm";
   const mm = v => (v * 1000).toFixed(1) + " mm";
   const fmt = v => v*100 >= 1 ? cm(v) : mm(v);
-
-  const q4  = lam / 4;           // λ/4 quarter wave
-  const q2  = lam / 2;           // λ/2 half wave
-  const q58 = lam * 5/8;         // 5/8λ (optimum gain vertical)
-  const gamma = q4 * 0.95;       // Gamma match skrátenie ~5%
-
-  // Odporúčaný typ podľa frekvencie
+  const q4  = lam / 4;
+  const q2  = lam / 2;
+  const q58 = lam * 5/8;
+  const gamma = q4 * 0.95;
   let rec, recNote;
-  if (freqMHz < 30) {
-    rec = "Dipól / dlhá drôtová"; recNote = "HF – horizontálny dipól alebo long wire";
-  } else if (freqMHz < 300) {
-    rec = "λ/4 vertikál alebo dipól"; recNote = "VHF – quarter-wave vertikál so 4 radials";
-  } else if (freqMHz < 1000) {
-    rec = "λ/4 vertikál / Yagi"; recNote = "UHF – quarter-wave alebo 5/8λ vertikál";
-  } else {
-    rec = "Patch / helikálna"; recNote = "SHF – patch anténa alebo helix";
-  }
-
+  if (freqMHz < 30) { rec = "Dipól / dlhá drôtová"; recNote = "HF – horizontálny dipól alebo long wire"; }
+  else if (freqMHz < 300) { rec = "λ/4 vertikál alebo dipól"; recNote = "VHF – quarter-wave vertikál so 4 radials"; }
+  else if (freqMHz < 1000) { rec = "λ/4 vertikál / Yagi"; recNote = "UHF – quarter-wave alebo 5/8λ vertikál"; }
+  else { rec = "Patch / helikálna"; recNote = "SHF – patch anténa alebo helix"; }
   return {lam, q4, q2, q58, gamma, rec, recNote, fmt};
 }
 
@@ -318,7 +312,6 @@ function renderAnt() {
   const freq = parseFloat(document.getElementById("freq").value) || 433.92;
   const a = antCalc(freq);
   const box = document.getElementById("ant-box");
-  const lm = v => (v*100).toFixed(2);
   box.innerHTML = `
     <div class="ant-row"><span class="ant-key">λ (vlnová dĺžka)</span><span class="ant-val">${a.fmt(a.lam)}</span></div>
     <div class="ant-row"><span class="ant-key">λ/4 quarter-wave</span><span class="ant-val" style="color:var(--g)">${a.fmt(a.q4)}</span></div>
@@ -444,11 +437,9 @@ function renderLibrary(files) {
     const item = document.createElement("div");
     item.className = "lib-item" + (selectedFile?.path===f.path?" selected":"");
     item.dataset.path = f.path;
-
     const dur = f.duration_s ? `${f.duration_s}s` : "";
     const sz  = f.size_mb ? `${f.size_mb}MB` : "";
     const meta = [dur, sz, f.added].filter(Boolean).join(" · ");
-
     item.innerHTML = `
       <button class="lib-play" onclick="selectFile(${JSON.stringify(f).replace(/"/g,'&quot;')}, this.closest('.lib-item'))">
         <div style="font-size:12px;color:var(--fg);margin-bottom:2px">${f.name.replace(/\.wav$/,"")}</div>
